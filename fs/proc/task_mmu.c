@@ -18,6 +18,7 @@
 #include <linux/page_idle.h>
 #include <linux/shmem_fs.h>
 #include <linux/uaccess.h>
+#include <linux/freezer.h>
 
 #include <asm/elf.h>
 #include <asm/tlb.h>
@@ -1860,6 +1861,8 @@ static int reclaim_pte_range(pmd_t *pmd, unsigned long addr,
 cont:
 	if (rwsem_is_contended(&walk->mm->mmap_sem))
 		return -1;
+	if (pm_freezing)
+		return -1;
 
 	isolated = 0;
 	pte = pte_offset_map_lock(vma->vm_mm, pmd, addr, &ptl);
@@ -1915,6 +1918,8 @@ static int writeback_pte_range(pmd_t *pmd, unsigned long addr,
 	if (pmd_trans_unstable(pmd))
 		return 0;
 	if (rwsem_is_contended(&mm->mmap_sem))
+		return -1;
+	if (pm_freezing)
 		return -1;
 	if (zram_is_app_launch())
 		return -EBUSY;
