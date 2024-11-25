@@ -302,6 +302,44 @@ config ARM_EXYNOS_ACME
 
 	  If in doubt, say N.
 
+
+config ARM_EXYNOS_MODCLOCK
+	bool "Samsung Exynos ACME Modclock Support"
+	depends on ARM_EXYNOS_ACME
+	default n
+	help
+	  Enable modifications for overclocking and underclocking on the
+	  Universal9611 platform.
+
+	  If unsure, select N.
+
+if ARM_EXYNOS_MODCLOCK
+
+config ARM_EXYNOS_MODCLOCK_BIG_MAX_FREQ
+	int "Maximum frequency for big CPU cluster (kHz)"
+	default 2304000
+	help
+	  Set maximum frequency for big CPU cluster in kHz.
+
+config ARM_EXYNOS_MODCLOCK_BIG_MIN_FREQ
+	int "Minimum frequency for big CPU cluster (kHz)"
+	default 936000
+	help
+	  Set minimum frequency for big CPU cluster in kHz.
+
+config ARM_EXYNOS_MODCLOCK_LITTLE_MAX_FREQ
+	int "Maximum frequency for little CPU cluster (kHz)"
+	default 1732000
+	help
+	  Set maximum frequency for little CPU cluster in kHz.
+
+config ARM_EXYNOS_MODCLOCK_LITTLE_MIN_FREQ
+	int "Minimum frequency for little CPU cluster (kHz)"
+	default 403000
+	help
+	  Set minimum frequency for little CPU cluster in kHz.
+endif
+
 config ARM_EXYNOS_UFC
 	bool "SAMSUNG EXYNOS UFC(User Frequency Control) driver"
 	depends on ARM_EXYNOS_ACME

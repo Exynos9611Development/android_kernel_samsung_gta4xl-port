@@ -310,13 +310,10 @@ static int update_freq(struct exynos_cpufreq_domain *domain,
 	if (!policy)
 		return -EINVAL;
 
-	down_read(&policy->rwsem);
 	if (static_governor(policy)) {
-		up_read(&policy->rwsem);
 		cpufreq_cpu_put(policy);
 		return 0;
 	}
-	up_read(&policy->rwsem);
 
 	ret = cpufreq_driver_target(policy, freq, CPUFREQ_RELATION_H);
 	cpufreq_cpu_put(policy);
@@ -909,7 +906,6 @@ static __init int init_table(struct exynos_cpufreq_domain *domain)
 
 	for (index = 0; index < domain->table_size; index++) {
 		domain->freq_table[index].driver_data = index;
-
 		if (table[index] > domain->max_freq)
 			domain->freq_table[index].frequency = CPUFREQ_ENTRY_INVALID;
 		else if (table[index] < domain->min_freq)
@@ -1153,6 +1149,119 @@ static int register_dm_callback(struct exynos_cpufreq_domain *domain)
 	return register_exynos_dm_freq_scaler(domain->dm_type, dm_scaler);
 }
 
+
+#ifdef CONFIG_ARM_EXYNOS_MODCLOCK
+
+/**
+ * cpufreq_read_cpu_max_c1 - read command line option for cpu max frequency
+ * for little cluster
+ * @cpu_max_c1: command line option string for cpu max frequency
+ *
+ * This function reads a command line option for cpu max frequency for little
+ * cluster and store it to a variable.
+ *
+ * Return: 0 if the option is valid, -EINVAL if the option is invalid.
+ */
+static unsigned long arg_cpu_max_c1 = ARM_EXYNOS_MODCLOCK_LITTLE_MAX_FREQ;
+
+static int __init cpufreq_read_cpu_max_c1(char *cpu_max_c1)
+{
+	unsigned long ui_khz;
+	int ret;
+
+	ret = kstrtoul(cpu_max_c1, 0, &ui_khz);
+	if (ret)
+		return -EINVAL;
+
+	arg_cpu_max_c1 = ui_khz;
+	printk("cpu_max_c1=%lu\n", arg_cpu_max_c1);
+	return ret;
+}
+__setup("cpu_max_c1=", cpufreq_read_cpu_max_c1);
+
+/**
+ * cpufreq_read_cpu_max_c2 - read command line option for cpu max frequency
+ * for big cluster
+ * @cpu_max_c2: command line option string for cpu max frequency
+ *
+ * This function reads a command line option for cpu max frequency for big
+ * cluster and store it to a variable.
+ *
+ * Return: 0 if the option is valid, -EINVAL if the option is invalid.
+ */
+unsigned long arg_cpu_max_c2 = ARM_EXYNOS_MODCLOCK_BIG_MAX_FREQ;
+
+static __init int cpufreq_read_cpu_max_c2(char *cpu_max_c2)
+{
+	unsigned long ui_khz;
+	int ret;
+
+	ret = kstrtoul(cpu_max_c2, 0, &ui_khz);
+	if (ret)
+		return -EINVAL;
+
+	arg_cpu_max_c2 = ui_khz;
+	printk("cpu_max_c2=%lu\n", arg_cpu_max_c2);
+	return ret;
+}
+__setup("cpu_max_c2=", cpufreq_read_cpu_max_c2);
+
+/**
+ * cpufreq_read_cpu_min_c1 - read command line option for cpu min frequency
+ * for little cluster
+ * @cpu_min_c1: command line option string for cpu min frequency
+ *
+ * This function reads a command line option for cpu min frequency for little
+ * cluster and store it to a variable.
+ *
+ * Return: 0 if the option is valid, -EINVAL if the option is invalid.
+ */
+
+static unsigned long arg_cpu_min_c1 = ARM_EXYNOS_MODCLOCK_LITTLE_MIN_FREQ;
+
+static int __init cpufreq_read_cpu_min_c1(char *cpu_min_c1)
+{
+	unsigned long ui_khz;
+	int ret;
+
+	ret = kstrtoul(cpu_min_c1, 0, &ui_khz);
+	if (ret)
+		return -EINVAL;
+
+	arg_cpu_min_c1 = ui_khz;
+	printk("cpu_min_c1=%lu\n", arg_cpu_min_c1);
+	return ret;
+}
+__setup("cpu_min_c1=", cpufreq_read_cpu_min_c1);
+
+/**
+ * cpufreq_read_cpu_min_c2 - read command line option for cpu min frequency
+ * for big cluster
+ * @cpu_min_c2: command line option string for cpu min frequency
+ *
+ * This function reads a command line option for cpu min frequency for big
+ * cluster and store it to a variable.
+ *
+ * Return: 0 if the option is valid, -EINVAL if the option is invalid.
+ */
+unsigned long arg_cpu_min_c2 = ARM_EXYNOS_MODCLOCK_BIG_MIN_FREQ;
+
+static __init int cpufreq_read_cpu_min_c2(char *cpu_min_c2)
+{
+	unsigned long ui_khz;
+	int ret;
+
+	ret = kstrtoul(cpu_min_c2, 0, &ui_khz);
+	if (ret)
+		return -EINVAL;
+
+	arg_cpu_min_c2 = ui_khz;
+	printk("cpu_min_c2=%lu\n", arg_cpu_min_c2);
+	return ret;
+}
+__setup("cpu_min_c2=", cpufreq_read_cpu_min_c2);
+#endif
+
 static __init int init_domain(struct exynos_cpufreq_domain *domain,
 					struct device_node *dn)
 {
@@ -1176,6 +1285,10 @@ static __init int init_domain(struct exynos_cpufreq_domain *domain,
 	if (!of_property_read_u32(dn, "min-freq", &val))
 		domain->min_freq = max(domain->min_freq, val);
 
+        /* Default QoS for user */
+	if (!of_property_read_u32(dn, "user-default-qos", &val))
+		domain->user_default_qos = val;
+
 	/* If this domain has boost freq, change max */
 	val = exynos_pstate_get_boost_freq(cpumask_first(&domain->cpus));
 	if (val > domain->max_freq)
@@ -1183,6 +1296,20 @@ static __init int init_domain(struct exynos_cpufreq_domain *domain,
 
 	if (of_property_read_bool(dn, "need-awake"))
 		domain->need_awake = true;
+
+#ifdef CONFIG_ARM_EXYNOS_MODCLOCK
+	if (domain->id == 0) {
+		domain->max_usable_freq = arg_cpu_max_c1;
+		domain->max_freq = arg_cpu_max_c1;
+		domain->min_usable_freq = arg_cpu_min_c1;
+		domain->min_freq = arg_cpu_min_c1;
+	} else if (domain->id == 1) {
+		domain->max_usable_freq = arg_cpu_max_c2;
+		domain->max_freq = arg_cpu_max_c2;
+		domain->min_usable_freq = arg_cpu_min_c2;
+		domain->min_freq = arg_cpu_min_c2;
+	}
+#endif
 
 	domain->boot_freq = cal_dfs_get_boot_freq(domain->cal_id);
 	domain->resume_freq = cal_dfs_get_resume_freq(domain->cal_id);
