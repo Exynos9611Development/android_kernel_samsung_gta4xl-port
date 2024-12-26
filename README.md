@@ -5,7 +5,7 @@ A customized kernel designed to optimize performance and features for Exynos 961
 ## Features
 - Removal of Samsung-specific security and debugging features.
 - Based on Tab S6 Lite kernel source
-- Compiled with Neutron Clang 18 and LLVM binutils.
+- Compiled with Neutron Clang 19 and LLVM binutils.
 - Includes Erofs, Incremental FS, BinderFS, and various backports.
 - Enhanced DeX touchpad support for compatible OneUI versions.
 - Strips away numerous Samsung-introduced debug codes/configurations.
